@@ -1,0 +1,47 @@
+{
+  "name": "commai",
+  "version": "1.0.0",
+  "description": "Generate git commit messages using AI",
+  "type": "module",
+  "bin": {
+    "commai": "./bin/commai.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "scripts": {
+    "test": "tsx --test test/*.test.ts test/**/*.test.ts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.2.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.8.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.58.0"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "claude",
+    "cli"
+  ],
+  "license": "MIT"
+}
