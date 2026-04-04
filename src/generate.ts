@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { getStagedDiff, commit as gitCommit } from "./git.js";
 import { createAIService, type AIService } from "./services/ai.js";
 import { promptUserForAction } from "./prompt.js";
+import * as logger from "./utils/logger.js";
 
 export interface GenerateOptions {
   model?: string;
@@ -57,7 +58,7 @@ export async function generate(
   try {
     service = opts.service ?? createAIService("claude", { model });
   } catch (err) {
-    console.error(`Error: ${(err as Error).message}`);
+    logger.error((err as Error).message);
     process.exit(1);
   }
 
@@ -66,7 +67,7 @@ export async function generate(
   try {
     message = await service.generateCommitMessage(diff);
   } catch (err) {
-    console.error(`Error calling AI: ${(err as Error).message}`);
+    logger.error(`AI call failed: ${(err as Error).message}`);
     // Non-fatal — let commit proceed without a generated message
     process.exit(0);
   }
@@ -89,7 +90,7 @@ export async function generate(
               result.instructions,
             );
           } catch (err) {
-            console.error(`Error calling AI: ${(err as Error).message}`);
+            logger.error(`AI call failed: ${(err as Error).message}`);
             process.exit(0);
           }
           break;
