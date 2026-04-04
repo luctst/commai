@@ -1,4 +1,6 @@
 import { createInterface, type Interface } from "node:readline";
+import chalk from "chalk";
+import * as logger from "./utils/logger.js";
 
 export type PromptAction =
   | { action: "accept" }
@@ -30,17 +32,20 @@ export async function promptUserForAction(
   }
 
   try {
-    console.error("\nGenerated commit message:");
-    console.error("─".repeat(40));
-    console.error(message);
-    console.error("─".repeat(40));
-    console.error("");
-    console.error("  (a) Accept");
-    console.error("  (r) Regenerate");
-    console.error("  (c) Cancel");
-    console.error("");
+    const divider = chalk.gray("─".repeat(40));
 
-    const choice = await ask(rl, "> ");
+    logger.ui("");
+    logger.ui(chalk.bold("Generated commit message:"));
+    logger.ui(divider);
+    logger.ui(chalk.cyan(message));
+    logger.ui(divider);
+    logger.ui("");
+    logger.ui(`  ${chalk.green("(a)")} Accept`);
+    logger.ui(`  ${chalk.yellow("(r)")} Regenerate`);
+    logger.ui(`  ${chalk.red("(c)")} Cancel`);
+    logger.ui("");
+
+    const choice = await ask(rl, chalk.bold("> "));
 
     switch (choice.toLowerCase()) {
       case "a":
@@ -49,7 +54,7 @@ export async function promptUserForAction(
       case "r": {
         const instructions = await ask(
           rl,
-          "Additional instructions (press Enter to skip): ",
+          chalk.gray("Additional instructions (press Enter to skip): "),
         );
         return {
           action: "regenerate",
@@ -61,7 +66,7 @@ export async function promptUserForAction(
         return { action: "cancel" };
 
       default:
-        console.error(`Unknown choice "${choice}", defaulting to cancel.`);
+        logger.warn(`Unknown choice "${choice}", defaulting to cancel.`);
         return { action: "cancel" };
     }
   } finally {

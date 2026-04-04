@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AIService } from "./ai.js";
+import * as logger from "../utils/logger.js";
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 256;
@@ -21,10 +22,8 @@ export class ClaudeService implements AIService {
   constructor(model?: string, client?: Anthropic) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey && !client) {
-      console.error(
-        "Error: ANTHROPIC_API_KEY environment variable is not set.",
-      );
-      console.error(
+      logger.error("ANTHROPIC_API_KEY environment variable is not set.");
+      logger.warn(
         "Set it in your shell profile: export ANTHROPIC_API_KEY=sk-ant-...",
       );
       process.exit(1);
