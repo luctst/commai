@@ -26,7 +26,7 @@ The `generate` command is the core path:
 1. `src/git.ts` reads the staged diff (`git diff --cached`)
 2. `src/services/ai.ts` factory creates an `AIService` (currently only `ClaudeService` in `claude.ts`)
 3. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline`
-4. `src/generate.ts` orchestrates the above and writes the result to the commit message file
+4. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `--auto-commit` is set)
 
 ### AI Service Layer
 
@@ -34,7 +34,23 @@ The `generate` command is the core path:
 
 ### Hook Lifecycle
 
-`src/install.ts` writes/removes the `prepare-commit-msg` hook in `.git/hooks/`. Uses a `# managed-by-commai` marker comment for idempotency — install overwrites its own hook but refuses to touch foreign hooks.
+`src/install.ts` exports `install()` and `uninstall()`.
+
+**install():**
+
+1. Creates `.commai/` at the repo root.
+2. Writes `.commai/prepare-commit-msg` — runs `commai generate`, skips amend/merge/squash commits, then falls through to `.husky/prepare-commit-msg` and `.git/hooks/prepare-commit-msg` for chain compatibility.
+3. Writes forwarder scripts for all 12 standard hooks (`pre-commit`, `commit-msg`, `post-commit`, `pre-push`, `pre-rebase`, `post-checkout`, `post-merge`, `post-rewrite`, `pre-auto-gc`, `applypatch-msg`, `pre-applypatch`, `post-applypatch`) — each delegates to the matching `.husky/<hook>` then `.git/hooks/<hook>`.
+4. Sets `git config core.hooksPath .commai` — redirects all git hook dispatch to `.commai/`.
+5. Saves the previous `core.hooksPath` value in `.commai/.config` (JSON) so uninstall can restore it.
+
+**uninstall():**
+
+1. Verifies `# managed-by-commai` marker in `.commai/prepare-commit-msg`. Exits 1 if absent (foreign directory) or if `.commai/` doesn't exist.
+2. Removes `.commai/` entirely.
+3. Restores `core.hooksPath` to its saved value, or unsets it if it was previously empty.
+
+**Idempotency:** install overwrites its own `.commai/` (marker present). Refuses to overwrite a `.commai/` not created by commai — exits 1.
 
 ### Error Handling Convention
 
