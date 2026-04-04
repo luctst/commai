@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+type GitConfigKeys = "core.hooksPath";
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -29,4 +31,30 @@ export async function getStagedDiff(): Promise<string> {
  */
 export async function commit(message: string): Promise<void> {
   await execFileAsync("git", ["commit", "-m", message]);
+}
+
+/**
+ * Returns the value of a git config key, or null if unset.
+ */
+export async function getGitConfig(key: GitConfigKeys): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["config", key]);
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets a git config key to the given value.
+ */
+export async function setGitConfig(key: GitConfigKeys, value: string): Promise<void> {
+  await execFileAsync("git", ["config", key, value]);
+}
+
+/**
+ * Unsets a git config key.
+ */
+export async function unsetGitConfig(key: GitConfigKeys): Promise<void> {
+  await execFileAsync("git", ["config", "--unset", key]);
 }
