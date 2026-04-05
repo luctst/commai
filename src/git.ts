@@ -48,7 +48,10 @@ export async function getGitConfig(key: GitConfigKeys): Promise<string | null> {
 /**
  * Sets a git config key to the given value.
  */
-export async function setGitConfig(key: GitConfigKeys, value: string): Promise<void> {
+export async function setGitConfig(
+  key: GitConfigKeys,
+  value: string,
+): Promise<void> {
   await execFileAsync("git", ["config", key, value]);
 }
 
