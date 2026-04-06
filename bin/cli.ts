@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { install, uninstall } from "../src/install.js";
 import { generate } from "../src/generate.js";
+import { GenerateOptions } from "../src/types.js";
 
 const program = new Command();
 
@@ -28,17 +29,17 @@ program
   .description("Generate a commit message from staged changes")
   .argument("<file>", "Path to the commit message file")
   .requiredOption("--model <model>", "model to use with the <family>@<version> format e.g: sonnet@latest | haiku@4.0.25")
-  .option("--no-interactive", "Skip interactive prompt, write message directly")
+  .option("--interactive", "interactive prompt ask for confirmation, regenerate message or cancel process", true)
   .option(
     "--auto-commit",
     "Run git commit automatically after accepting the message",
     false,
   )
-  .action(async (file: string, opts: Record<string, unknown>) => {
+  .action(async (file: string, opts: GenerateOptions) => {
     await generate(file, {
-      model: opts.model as string,
-      interactive: opts.interactive as boolean,
-      autoCommit: opts.autoCommit as boolean,
+      model: opts.model,
+      interactive: opts.interactive,
+      autoCommit: opts.autoCommit,
     });
   });
 
