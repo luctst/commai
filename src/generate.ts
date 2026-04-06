@@ -8,9 +8,9 @@ import * as logger from "./utils/logger.js";
 
 export async function generate(
   commitMsgFile: string,
-  opts: GenerateOptions = {},
+  opts: GenerateOptions,
 ): Promise<void> {
-  const { model, interactive = true, autoCommit = false } = opts;
+  const { model, interactive, autoCommit} = opts;
 
   // 1. Read staged diff
   let diff: string;
