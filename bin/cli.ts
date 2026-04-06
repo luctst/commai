@@ -2,7 +2,6 @@ import { loadEnv } from "../src/utils/loadEnv.js";
 import { Command } from "commander";
 import { install, uninstall } from "../src/install.js";
 import { generate } from "../src/generate.js";
-import { GenerateOptions } from "../src/types.js";
 
 loadEnv();
 
@@ -16,21 +15,6 @@ program
 program
   .command("install")
   .description("Install the prepare-commit-msg git hook in the current repo")
-  .action(async () => {
-    await install();
-  });
-
-program
-  .command("uninstall")
-  .description("Remove the commai git hook from the current repo")
-  .action(async () => {
-    await uninstall();
-  });
-
-program
-  .command("generate")
-  .description("Generate a commit message from staged changes")
-  .argument("<file>", "Path to the commit message file")
   .requiredOption(
     "--model <model>",
     "model to use with the <family>@<version> format e.g: sonnet@latest | haiku@4.0.25",
@@ -45,12 +29,33 @@ program
     "Run git commit automatically after accepting the message",
     false,
   )
-  .action(async (file: string, opts: GenerateOptions) => {
-    await generate(file, {
-      model: opts.model,
-      interactive: opts.interactive,
-      autoCommit: opts.autoCommit,
-    });
+  .action(
+    async (opts: {
+      model: string;
+      interactive: boolean;
+      autoCommit: boolean;
+    }) => {
+      await install({
+        model: opts.model,
+        interactive: opts.interactive,
+        autoCommit: opts.autoCommit,
+      });
+    },
+  );
+
+program
+  .command("uninstall")
+  .description("Remove the commai git hook from the current repo")
+  .action(async () => {
+    await uninstall();
+  });
+
+program
+  .command("generate")
+  .description("Generate a commit message from staged changes")
+  .argument("<file>", "Path to the commit message file")
+  .action(async (file: string) => {
+    await generate(file);
   });
 
 program.parse();
