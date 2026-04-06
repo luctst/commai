@@ -11,7 +11,7 @@
   },
   "files": [
     "dist/",
-    "bin/commai.js"
+    "bin/commai.mjs"
   ],
   "scripts": {
     "build": "tsdown",
