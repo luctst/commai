@@ -9,8 +9,8 @@ export interface AIService {
 /** Options accepted by the generate() command. */
 export interface GenerateOptions {
   model: string;
-  interactive?: boolean;
-  autoCommit?: boolean;
+  interactive: boolean;
+  autoCommit: boolean;
   /** Injected AI service for testing */
   service?: AIService;
 }
