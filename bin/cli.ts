@@ -1,7 +1,10 @@
+import { loadEnv } from "../src/utils/loadEnv.js";
 import { Command } from "commander";
 import { install, uninstall } from "../src/install.js";
 import { generate } from "../src/generate.js";
 import { GenerateOptions } from "../src/types.js";
+
+loadEnv();
 
 const program = new Command();
 
@@ -28,8 +31,15 @@ program
   .command("generate")
   .description("Generate a commit message from staged changes")
   .argument("<file>", "Path to the commit message file")
-  .requiredOption("--model <model>", "model to use with the <family>@<version> format e.g: sonnet@latest | haiku@4.0.25")
-  .option("--interactive", "interactive prompt ask for confirmation, regenerate message or cancel process", true)
+  .requiredOption(
+    "--model <model>",
+    "model to use with the <family>@<version> format e.g: sonnet@latest | haiku@4.0.25",
+  )
+  .option(
+    "--interactive",
+    "interactive prompt ask for confirmation, regenerate message or cancel process",
+    true,
+  )
   .option(
     "--auto-commit",
     "Run git commit automatically after accepting the message",
