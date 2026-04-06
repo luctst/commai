@@ -24,13 +24,21 @@ No build step — TypeScript is executed directly via `tsx`.
 The `generate` command is the core path:
 
 1. `src/git.ts` reads the staged diff (`git diff --cached`)
-2. `src/services/ai.ts` factory creates an `AIService` (currently only `ClaudeService` in `claude.ts`)
-3. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline`
-4. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `--auto-commit` is set)
+2. `src/services/ai/resolveModel.ts` determines the provider (e.g., `"claude"` from a model string like `"sonnet@latest"` or `"claude-sonnet-4-20250514"`)
+3. `src/services/ai/ai.ts` factory `createAIService()` instantiates the provider's service (currently only `ClaudeService`)
+4. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline`
+5. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `--auto-commit` is set)
 
 ### AI Service Layer
 
-`AIService` interface in `src/services/ai.ts` with a `createAIService()` factory. New providers go in `src/services/` and get a case in the factory switch. The interface is intentionally minimal: `generateCommitMessage(diff, instructions?)`.
+**Provider resolution** is split into two concerns:
+
+- `resolveProvider(modelString)` in `src/services/ai/resolveModel.ts` — synchronous function that determines which AI provider (e.g., `"claude"`) a model string maps to. Handles both alias format (`"sonnet@latest"`) and raw model IDs (`"claude-sonnet-4-20250514"`). Throws if no known family is found.
+- `createAIService(provider, { model? })` in `src/services/ai/ai.ts` — factory that instantiates the service for a given provider.
+
+Each service (e.g., `ClaudeService`) handles its own **model ID resolution**. `ClaudeService.getModel()` resolves aliases to concrete model IDs via `models.list()`, falling back to the input as-is on error or if it's not an alias.
+
+`AIService` interface is intentionally minimal: `generateCommitMessage(diff, instructions?)`. New providers go in `src/services/ai/<provider>/` and get a case in the `createAIService()` factory switch.
 
 ### Hook Lifecycle
 
