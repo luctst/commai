@@ -56,6 +56,8 @@ describe("generate", () => {
     process.chdir(tempDir);
     try {
       await generate(commitMsgFile, {
+        model: "test",
+        autoCommit: false,
         interactive: false,
         service: createMockService("feat: add hello world"),
       });
@@ -83,6 +85,8 @@ describe("generate", () => {
     process.chdir(tempDir);
     try {
       await generate(commitMsgFile, {
+        model: "test",
+        autoCommit: false,
         interactive: false,
         service: createMockService("feat: add constant"),
       });
@@ -108,12 +112,14 @@ describe("generate", () => {
     process.chdir(tempDir);
     try {
       await generate(commitMsgFile, {
+        model: "test",
+        autoCommit: false,
         interactive: false,
         service: mockService,
       });
 
       // Verify the mock was called
-      const fn = mockService.generateCommitMessage as ReturnType<
+      const fn = mockService.generateCommitMessage as unknown as ReturnType<
         typeof mock.fn
       >;
       assert.equal(fn.mock.calls.length, 1);

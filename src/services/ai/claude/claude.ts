@@ -40,7 +40,10 @@ export class ClaudeService implements AIService {
       );
 
     if (matching.length === 0) return input;
-    matching.sort((a, b) => b.created_at - a.created_at);
+    matching.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
     return matching[0].id;
   }
 

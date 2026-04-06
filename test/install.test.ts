@@ -186,7 +186,6 @@ describe("install / uninstall", () => {
         const { install } = await import("../src/install.js");
         const originalExit = process.exit;
         let exitCode: number | undefined;
-        // @ts-expect-error — mock process.exit
         process.exit = (code: number) => {
           exitCode = code;
           throw new Error("process.exit called");
@@ -264,7 +263,6 @@ describe("install / uninstall", () => {
         const { uninstall } = await import("../src/install.js");
         const originalExit = process.exit;
         let exitCode: number | undefined;
-        // @ts-expect-error — mock process.exit
         process.exit = (code: number) => {
           exitCode = code;
           throw new Error("process.exit called");
@@ -289,7 +287,6 @@ describe("install / uninstall", () => {
         const { uninstall } = await import("../src/install.js");
         const originalExit = process.exit;
         let exitCode: number | undefined;
-        // @ts-expect-error — mock process.exit
         process.exit = (code: number) => {
           exitCode = code;
           throw new Error("process.exit called");
