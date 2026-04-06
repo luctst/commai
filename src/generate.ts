@@ -1,11 +1,12 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { getStagedDiff, commit as gitCommit } from "./git.js";
-import { createAIService, type AIService } from "./services/ai.js";
+import { createAIService, type AIService } from "./services/ai/ai.js";
+import { resolveProvider } from "./services/ai/resolveModel.js";
 import { promptUserForAction } from "./prompt.js";
 import * as logger from "./utils/logger.js";
 
 export interface GenerateOptions {
-  model?: string;
+  model: string;
   interactive?: boolean;
   autoCommit?: boolean;
   /** Injected AI service for testing */
@@ -17,7 +18,7 @@ export async function generate(
   opts: GenerateOptions = {},
 ): Promise<void> {
   const {
-    model = "claude-sonnet-4-20250514",
+    model,
     interactive = true,
     autoCommit = false,
   } = opts;
@@ -56,7 +57,8 @@ export async function generate(
   // 3. Create AI service
   let service: AIService;
   try {
-    service = opts.service ?? createAIService("claude", { model });
+    service =
+      opts.service ?? createAIService(resolveProvider(model), { model });
   } catch (err) {
     logger.error((err as Error).message);
     process.exit(1);
