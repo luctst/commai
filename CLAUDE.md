@@ -9,6 +9,12 @@ pnpm install              # install dependencies
 pnpm test                 # run all tests
 npx tsx --test test/git.test.ts   # run a single test file
 npx tsx bin/cli.ts --help         # run CLI locally without installing
+
+# Configure commai in the repo (run once)
+npx tsx bin/cli.ts install --model sonnet@latest --interactive
+
+# Generate a commit message (called by git hook; uses config from .commai/.config)
+npx tsx bin/cli.ts generate
 ```
 
 No build step — TypeScript is executed directly via `tsx`.
@@ -21,13 +27,21 @@ No build step — TypeScript is executed directly via `tsx`.
 
 `bin/commai.js` (thin Node shim) → `bin/cli.ts` (commander dispatch) → command handlers in `src/`
 
-The `generate` command is the core path:
+**install command:** Runs once per repo to configure commai.
 
-1. `src/git.ts` reads the staged diff (`git diff --cached`)
-2. `src/services/ai/resolveModel.ts` determines the provider (e.g., `"claude"` from a model string like `"sonnet@latest"` or `"claude-sonnet-4-20250514"`)
-3. `src/services/ai/ai.ts` factory `createAIService()` instantiates the provider's service (currently only `ClaudeService`)
-4. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline`
-5. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `--auto-commit` is set)
+1. Accepts CLI options: `--model` (required), `--interactive`, `--auto-commit`
+2. Creates `.commai/` directory and hook scripts
+3. Writes `CommaiConfig` to `.commai/.config` (JSON) with the provided options
+4. Sets `git config core.hooksPath .commai`
+
+**generate command** (core runtime path, called by git hook):
+
+1. Reads `CommaiConfig` from `.commai/.config`
+2. `src/git.ts` reads the staged diff (`git diff --cached`)
+3. `src/services/ai/resolveModel.ts` determines the provider (e.g., `"claude"` from a model string like `"sonnet@latest"` or `"claude-sonnet-4-20250514"`)
+4. `src/services/ai/ai.ts` factory `createAIService()` instantiates the provider's service (currently only `ClaudeService`)
+5. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline` (if `interactive: true`)
+6. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `autoCommit: true`)
 
 ### AI Service Layer
 
@@ -50,7 +64,7 @@ Each service (e.g., `ClaudeService`) handles its own **model ID resolution**. `C
 2. Writes `.commai/prepare-commit-msg` — runs `commai generate`, skips amend/merge/squash commits, then falls through to `.husky/prepare-commit-msg` and `.git/hooks/prepare-commit-msg` for chain compatibility.
 3. Writes forwarder scripts for all 12 standard hooks (`pre-commit`, `commit-msg`, `post-commit`, `pre-push`, `pre-rebase`, `post-checkout`, `post-merge`, `post-rewrite`, `pre-auto-gc`, `applypatch-msg`, `pre-applypatch`, `post-applypatch`) — each delegates to the matching `.husky/<hook>` then `.git/hooks/<hook>`.
 4. Sets `git config core.hooksPath .commai` — redirects all git hook dispatch to `.commai/`.
-5. Saves the previous `core.hooksPath` value in `.commai/.config` (JSON) so uninstall can restore it.
+5. Writes `CommaiConfig` to `.commai/.config` (JSON) containing `model`, `interactive`, `autoCommit`, and the previous `core.hooksPath` value (for uninstall restoration).
 
 **uninstall():**
 
