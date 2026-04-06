@@ -1,16 +1,55 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { getStagedDiff, commit as gitCommit } from "./git.js";
+import { join } from "node:path";
+import { getRepoRoot, getStagedDiff, commit as gitCommit } from "./git.js";
 import { createAIService } from "./services/ai/ai.js";
 import { resolveProvider } from "./services/ai/resolveModel.js";
 import { promptUserForAction } from "./prompt.js";
-import { type AIService, type GenerateOptions } from "./types.js";
+import {
+  type AIService,
+  type CommaiConfig,
+  type GenerateOptions,
+} from "./types.js";
 import * as logger from "./utils/logger.js";
+
+const COMMAI_DIR = ".commai";
+const CONFIG_FILE = ".config";
+
+async function loadConfig(): Promise<CommaiConfig> {
+  const repoRoot = await getRepoRoot();
+  const configPath = join(repoRoot, COMMAI_DIR, CONFIG_FILE);
+  const raw = await readFile(configPath, "utf8");
+  return JSON.parse(raw) as CommaiConfig;
+}
 
 export async function generate(
   commitMsgFile: string,
-  opts: GenerateOptions,
+  opts?: GenerateOptions,
 ): Promise<void> {
-  const { model, interactive, autoCommit } = opts;
+  let model: string;
+  let interactive: boolean;
+  let autoCommit: boolean;
+  let service: AIService | undefined = opts?.service;
+
+  if (service && opts?.model) {
+    // Test path — all values provided directly
+    model = opts.model;
+    interactive = opts.interactive ?? false;
+    autoCommit = opts.autoCommit ?? false;
+  } else {
+    // Normal path — read from .commai/.config
+    let config: CommaiConfig;
+    try {
+      config = await loadConfig();
+    } catch {
+      logger.error(
+        "commai is not installed. Run 'commai install --model <model>' first.",
+      );
+      process.exit(1);
+    }
+    model = opts?.model ?? config.model;
+    interactive = opts?.interactive ?? config.interactive;
+    autoCommit = opts?.autoCommit ?? config.autoCommit;
+  }
 
   // 1. Read staged diff
   let diff: string;
@@ -44,13 +83,13 @@ export async function generate(
   }
 
   // 3. Create AI service
-  let service: AIService;
-  try {
-    service =
-      opts.service ?? createAIService(resolveProvider(model), { model });
-  } catch (err) {
-    logger.error((err as Error).message);
-    process.exit(0);
+  if (!service) {
+    try {
+      service = createAIService(resolveProvider(model), { model });
+    } catch (err) {
+      logger.error((err as Error).message);
+      process.exit(0);
+    }
   }
 
   // 4. Generate message
