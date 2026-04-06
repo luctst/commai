@@ -18,6 +18,7 @@ jobs:
           cache: pnpm
       - run: pnpm run format:check
       - run: pnpm run lint
+      - run: pnpm run typecheck
 
   test:
     runs-on: ubuntu-latest
