@@ -50,7 +50,7 @@ export async function generate(
       opts.service ?? createAIService(resolveProvider(model), { model });
   } catch (err) {
     logger.error((err as Error).message);
-    process.exit(1);
+    process.exit(0);
   }
 
   // 4. Generate message
