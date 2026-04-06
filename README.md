@@ -48,14 +48,20 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 ### 2. Install the hook
 
-Run this once per git repository:
+Run this once per git repository. Pass your chosen model — it's stored in `.commai/.config` and used on every subsequent commit.
 
 ```bash
 cd your-project
-commai install
+commai install --model sonnet@latest
 ```
 
-This creates `.commai/prepare-commit-msg` and sets `git config core.hooksPath .commai`.
+With all options explicit:
+
+```bash
+commai install --model haiku@latest --interactive --auto-commit
+```
+
+This creates `.commai/prepare-commit-msg`, writes `.commai/.config`, and sets `git config core.hooksPath .commai`.
 
 ### 3. Make a commit
 
@@ -107,21 +113,32 @@ ANTHROPIC_API_KEY=sk-ant-abc123...
 
 ## Commands
 
-### `commai install`
+### `commai install --model <model> [--interactive] [--auto-commit]`
 
-Install the `prepare-commit-msg` hook in the current git repository.
+Install the `prepare-commit-msg` hook and write the runtime config to `.commai/.config`.
 
 ```bash
-commai install
+commai install --model sonnet@latest
+commai install --model haiku@latest --interactive --auto-commit
 ```
+
+**Options:**
+
+| Flag              | Default  | Description                                                                                                                    |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--model <model>` | Required | Model to use, in `<family>@<version>` format (e.g., `sonnet@latest`, `haiku@4.0.25`). See [Model Selection](#model-selection). |
+| `--interactive`   | `true`   | Show the accept/regenerate/cancel prompt on each commit.                                                                       |
+| `--auto-commit`   | `false`  | Run `git commit -m '<message>'` automatically after accepting.                                                                 |
 
 **Effects:**
 
 - Creates `.commai/` directory at repo root
 - Writes `.commai/prepare-commit-msg` (marked with `# managed-by-commai`)
+- Writes `.commai/.config` (JSON) with `model`, `interactive`, `autoCommit`, and the previous `core.hooksPath` value
 - Sets `git config core.hooksPath .commai`
-- Saves previous `core.hooksPath` value in `.commai/.config` for restoration on uninstall
 - Creates forwarder scripts for all 12 git hooks (chains to `.husky/` and `.git/hooks/`)
+
+To change options (e.g., switch model), re-run `commai install --model <new-model>`. Do not edit `.commai/.config` manually.
 
 **Idempotent:** Running install again safely overwrites the hook if it was created by commai. Exits 1 if `.commai/` exists but wasn't created by commai (foreign directory — refuses to overwrite).
 
@@ -141,30 +158,20 @@ commai uninstall
 
 **Safety:** Checks for the `# managed-by-commai` marker in `.commai/prepare-commit-msg`. Exits 1 if the marker is absent (refuses to uninstall a foreign hook directory).
 
-### `commai generate <file> --model <model> [--interactive] [--auto-commit]`
+### `commai generate <file>`
 
-Generate a commit message from staged changes. Normally called by the hook; rarely invoked directly.
+Generate a commit message from staged changes. Normally called by the `prepare-commit-msg` hook; rarely invoked directly.
 
 **Arguments:**
 
 - `<file>` — Path to the commit message file (usually `.git/COMMIT_EDITMSG`, provided by git)
 
-**Options:**
-
-| Flag              | Default  | Description                                                                                                                    |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `--model <model>` | Required | Model to use, in `<family>@<version>` format (e.g., `sonnet@latest`, `haiku@4.0.25`). See [Model Selection](#model-selection). |
-| `--interactive`   | `true`   | Show the accept/regenerate/cancel prompt. Set to `false` to skip (exit code 0 on success).                                     |
-| `--auto-commit`   | `false`  | Run `git commit -m '<message>'` automatically after accepting. Skip the final file write.                                      |
+All runtime options (`model`, `interactive`, `autoCommit`) are read from `.commai/.config`. To change them, re-run `commai install --model <model> [--interactive] [--auto-commit]`.
 
 **Example:**
 
 ```bash
-# Interactive regeneration with haiku model
-commai generate .git/COMMIT_EDITMSG --model haiku@latest
-
-# Non-interactive, auto-commit
-commai generate .git/COMMIT_EDITMSG --model sonnet@latest --interactive=false --auto-commit
+commai generate .git/COMMIT_EDITMSG
 ```
 
 **Exit codes:**
@@ -214,6 +221,7 @@ See the [Anthropic models page](https://docs.anthropic.com/en/docs/about/models)
 [git commit] → [prepare-commit-msg hook]
    ↓
 [commai generate]
+   ├─ Read options from .commai/.config (model, interactive, autoCommit)
    ├─ Read staged diff via `git diff --cached`
    ├─ Check: existing user content? (skip if yes)
    ├─ Check: changes to stage? (skip if no)
@@ -241,7 +249,7 @@ This allows commai to coexist with husky, commitlint, and other pre-commit tooli
 ### What's Safe to Delete
 
 - **Don't delete `.commai/`** — Run `commai uninstall` instead
-- **Don't edit `.commai/`** — It's auto-generated and marked with `# managed-by-commai`
+- **Don't edit `.commai/`** — Hook scripts and `.commai/.config` are auto-generated. To change options, re-run `commai install --model <model>`
 - **Safe to delete:** `.git/hooks/prepare-commit-msg` (if not created by you), or third-party hooks if you're sure they're no longer needed
 
 ## Troubleshooting
