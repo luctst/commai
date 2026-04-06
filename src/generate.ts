@@ -10,7 +10,7 @@ export async function generate(
   commitMsgFile: string,
   opts: GenerateOptions,
 ): Promise<void> {
-  const { model, interactive, autoCommit} = opts;
+  const { model, interactive, autoCommit } = opts;
 
   // 1. Read staged diff
   let diff: string;
