@@ -61,7 +61,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const content = await readFile(
           join(commaiDir, "prepare-commit-msg"),
           "utf8",
@@ -82,7 +86,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         for (const hook of STANDARD_HOOKS) {
           const content = await readFile(join(commaiDir, hook), "utf8");
           assert.ok(content.startsWith("#!/bin/sh"));
@@ -100,7 +108,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const stats = await stat(join(commaiDir, "prepare-commit-msg"));
         assert.ok((stats.mode & 0o100) !== 0, "Hook should be executable");
       } finally {
@@ -114,7 +126,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const { stdout } = await git(["config", "core.hooksPath"], tempDir);
         assert.equal(stdout.trim(), ".commai");
       } finally {
@@ -128,10 +144,17 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const raw = await readFile(join(commaiDir, ".config"), "utf8");
         const config = JSON.parse(raw);
         assert.equal(config.prevHooksPath, "");
+        assert.equal(config.model, "sonnet@latest");
+        assert.equal(config.interactive, true);
+        assert.equal(config.autoCommit, false);
       } finally {
         process.chdir(origCwd);
       }
@@ -144,7 +167,11 @@ describe("install / uninstall", () => {
       process.chdir(tempDir);
       try {
         await git(["config", "core.hooksPath", ".husky"], tempDir);
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const raw = await readFile(join(commaiDir, ".config"), "utf8");
         const config = JSON.parse(raw);
         assert.equal(config.prevHooksPath, ".husky");
@@ -159,8 +186,16 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         const content = await readFile(
           join(commaiDir, "prepare-commit-msg"),
           "utf8",
@@ -191,7 +226,11 @@ describe("install / uninstall", () => {
           throw new Error("process.exit called");
         };
         try {
-          await install();
+          await install({
+            model: "sonnet@latest",
+            interactive: true,
+            autoCommit: false,
+          });
         } catch {
           // expected
         }
@@ -210,7 +249,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         await uninstall();
         await assert.rejects(access(commaiDir), { code: "ENOENT" });
       } finally {
@@ -224,7 +267,11 @@ describe("install / uninstall", () => {
       const origCwd = process.cwd();
       process.chdir(tempDir);
       try {
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         await uninstall();
         await assert.rejects(git(["config", "core.hooksPath"], tempDir));
       } finally {
@@ -239,7 +286,11 @@ describe("install / uninstall", () => {
       process.chdir(tempDir);
       try {
         await git(["config", "core.hooksPath", ".husky"], tempDir);
-        await install();
+        await install({
+          model: "sonnet@latest",
+          interactive: true,
+          autoCommit: false,
+        });
         await uninstall();
         const { stdout } = await git(["config", "core.hooksPath"], tempDir);
         assert.equal(stdout.trim(), ".husky");
