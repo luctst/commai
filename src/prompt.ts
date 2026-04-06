@@ -1,11 +1,9 @@
 import { createInterface, type Interface } from "node:readline";
 import chalk from "chalk";
+import { type PromptAction } from "./types.js";
 import * as logger from "./utils/logger.js";
 
-export type PromptAction =
-  | { action: "accept" }
-  | { action: "regenerate"; instructions?: string }
-  | { action: "cancel" };
+export type { PromptAction };
 
 function ask(rl: Interface, question: string): Promise<string> {
   return new Promise((resolve) => {

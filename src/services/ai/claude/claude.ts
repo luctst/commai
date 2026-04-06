@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { AIService } from "../ai.js";
+import { type AIService } from "../../../types.js";
 import {
   MAX_TOKENS,
   MAX_DIFF_CHARS,
@@ -47,7 +47,7 @@ export class ClaudeService implements AIService {
   private async getModel(): Promise<string> {
     if (!this.resolvedModel) {
       try {
-				this.resolvedModel = await this.resolveClaudeModel(this.modelInput);
+        this.resolvedModel = await this.resolveClaudeModel(this.modelInput);
       } catch {
         logger.warn("Could not resolve model alias, using as-is.");
         this.resolvedModel = this.modelInput;

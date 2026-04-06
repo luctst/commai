@@ -1,27 +1,16 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { getStagedDiff, commit as gitCommit } from "./git.js";
-import { createAIService, type AIService } from "./services/ai/ai.js";
+import { createAIService } from "./services/ai/ai.js";
 import { resolveProvider } from "./services/ai/resolveModel.js";
 import { promptUserForAction } from "./prompt.js";
+import { type AIService, type GenerateOptions } from "./types.js";
 import * as logger from "./utils/logger.js";
-
-export interface GenerateOptions {
-  model: string;
-  interactive?: boolean;
-  autoCommit?: boolean;
-  /** Injected AI service for testing */
-  service?: AIService;
-}
 
 export async function generate(
   commitMsgFile: string,
   opts: GenerateOptions = {},
 ): Promise<void> {
-  const {
-    model,
-    interactive = true,
-    autoCommit = false,
-  } = opts;
+  const { model, interactive = true, autoCommit = false } = opts;
 
   // 1. Read staged diff
   let diff: string;

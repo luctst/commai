@@ -1,6 +1,5 @@
+import { type AIProvider } from "../../types.js";
 import { FAMILY_TO_PROVIDER } from "./familyProvider.js";
-
-export type AIProvider = "claude";
 
 /**
  * Resolves a model input string to its AI provider name.

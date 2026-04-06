@@ -1,9 +1,7 @@
+import { type AIProvider, type AIService } from "../../types.js";
 import { ClaudeService } from "./claude/claude.js";
-import { type AIProvider } from "./resolveModel.js";
 
-export interface AIService {
-  generateCommitMessage(diff: string, instructions?: string): Promise<string>;
-}
+export type { AIProvider, AIService };
 
 export const MAX_TOKENS = 256;
 export const MAX_DIFF_CHARS = 100_000;
@@ -17,8 +15,6 @@ Rules:
 - Be specific and factual — describe what changed, not just that something changed
 - Output ONLY the commit message, no explanation, no markdown formatting`;
 
-export type { AIProvider };
-
 export function createAIService(
   provider: AIProvider,
   options: { model?: string } = {},
@@ -27,8 +23,6 @@ export function createAIService(
     case "claude":
       return new ClaudeService(options.model);
     default:
-      throw new Error(
-        `Unknown AI provider: "${provider}".`,
-      );
+      throw new Error(`Unknown AI provider: "${provider}".`);
   }
 }
