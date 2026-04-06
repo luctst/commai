@@ -7,6 +7,7 @@ import {
   unsetGitConfig,
 } from "./git.js";
 import * as logger from "./utils/logger.js";
+import type { CommaiConfig } from "./types.js";
 
 const HOOK_MARKER = "# managed-by-commai";
 const COMMAI_DIR = ".commai";
@@ -46,7 +47,9 @@ exit 0
 `;
 }
 
-export async function install(): Promise<void> {
+export async function install(
+  opts: Pick<CommaiConfig, "model" | "interactive" | "autoCommit">,
+): Promise<void> {
   let repoRoot: string;
   try {
     repoRoot = await getRepoRoot();
@@ -83,10 +86,13 @@ export async function install(): Promise<void> {
     });
   }
 
-  await writeFile(
-    join(commaiDir, CONFIG_FILE),
-    JSON.stringify({ prevHooksPath }) + "\n",
-  );
+  const config: CommaiConfig = {
+    prevHooksPath,
+    model: opts.model,
+    interactive: opts.interactive,
+    autoCommit: opts.autoCommit,
+  };
+  await writeFile(join(commaiDir, CONFIG_FILE), JSON.stringify(config) + "\n");
 
   await setGitConfig("core.hooksPath", COMMAI_DIR);
 
