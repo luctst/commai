@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ClaudeService } from "../../src/services/claude.js";
+import { ClaudeService } from "../../src/services/ai/claude/claude.js";
 
 /** Creates a mock Anthropic client */
 function createMockClient(responseText: string) {
@@ -8,6 +8,11 @@ function createMockClient(responseText: string) {
     messages: {
       create: async () => ({
         content: [{ type: "text" as const, text: responseText }],
+      }),
+    },
+    models: {
+      list: async () => ({
+        data: [{ id: "claude-sonnet-4-6", created_at: 1 }],
       }),
     },
   } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -41,6 +46,11 @@ describe("ClaudeService", () => {
           };
         },
       },
+      models: {
+        list: async () => ({
+          data: [{ id: "claude-sonnet-4-6", created_at: 1 }],
+        }),
+      },
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const service = new ClaudeService("claude-sonnet-4-20250514", client);
@@ -72,6 +82,11 @@ describe("ClaudeService", () => {
           };
         },
       },
+      models: {
+        list: async () => ({
+          data: [{ id: "claude-sonnet-4-6", created_at: 1 }],
+        }),
+      },
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     const service = new ClaudeService("claude-sonnet-4-20250514", client);
@@ -88,6 +103,11 @@ describe("ClaudeService", () => {
       messages: {
         create: async () => ({
           content: [],
+        }),
+      },
+      models: {
+        list: async () => ({
+          data: [{ id: "claude-sonnet-4-6", created_at: 1 }],
         }),
       },
     } as any; // eslint-disable-line @typescript-eslint/no-explicit-any

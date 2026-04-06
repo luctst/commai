@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { AIService } from "../src/services/ai.js";
+import type { AIService } from "../src/services/ai/ai.js";
 
 const execFileAsync = promisify(execFile);
 
