@@ -59,8 +59,7 @@ export async function generate(
     message = await service.generateCommitMessage(diff);
   } catch (err) {
     logger.error(`AI call failed: ${(err as Error).message}`);
-    // Non-fatal — let commit proceed without a generated message
-    process.exit(0);
+    process.exit(1);
   }
 
   // 5. Interactive or direct mode
