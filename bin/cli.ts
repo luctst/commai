@@ -27,7 +27,7 @@ program
   .command("generate")
   .description("Generate a commit message from staged changes")
   .argument("<file>", "Path to the commit message file")
-  .option("--model <model>", "Claude model to use", "claude-sonnet-4-20250514")
+  .requiredOption("--model <model>", "model to use with the <family>@<version> format e.g: sonnet@latest | haiku@4.0.25")
   .option("--no-interactive", "Skip interactive prompt, write message directly")
   .option(
     "--auto-commit",
