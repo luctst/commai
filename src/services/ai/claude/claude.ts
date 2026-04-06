@@ -20,7 +20,8 @@ export class ClaudeService implements AIService {
     if (!apiKey && !client) {
       logger.error("ANTHROPIC_API_KEY environment variable is not set.");
       logger.warn(
-        "Set it in your shell profile: export ANTHROPIC_API_KEY=sk-ant-...",
+        "Set it in ~/.commai/.env or a .env in your project root (ANTHROPIC_API_KEY=sk-ant-...)" +
+          ", or export it in your shell profile.",
       );
       process.exit(1);
     }
