@@ -1,8 +1,8 @@
 # commai
 
-Generate git commit messages using Claude AI.
+Generate git commit messages using AI.
 
-**commai** is a CLI tool that automatically generates commit messages based on your staged changes using the Anthropic Claude API. It integrates seamlessly with git via the `prepare-commit-msg` hook and supports interactive accept/regenerate/cancel workflows.
+**commai** is a CLI tool that automatically generates commit messages based on your staged changes. It supports Claude (Anthropic) and OpenAI models, integrates with git via the `prepare-commit-msg` hook, and supports interactive accept/regenerate/cancel workflows. The provider is auto-detected from the model name — no extra configuration needed.
 
 ## Installation
 
@@ -21,38 +21,34 @@ pnpm add -D commai
 
 ### 1. Set your API key
 
-Choose one:
+Set the key for your chosen provider. commai infers the provider from the model name, so only the relevant key needs to be set.
 
-**Option A: Project-level (recommended for shared repos)**
-
-Create `.env` in your repo root:
-
-```bash
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
-```
-
-**Option B: Global (recommended for personal machines)**
-
-Create `~/.commai/.env`:
-
-```bash
-mkdir -p ~/.commai
-echo "ANTHROPIC_API_KEY=sk-ant-..." > ~/.commai/.env
-```
-
-**Option C: Shell environment**
+**Claude (Anthropic)** — required for `sonnet`, `haiku`, `opus` models:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+**OpenAI** — required for `gpt`, `o` models:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+You can also store keys in a `.env` file to avoid setting them in every shell session. See [Environment Variables](#environment-variables) for all options.
+
 ### 2. Install the hook
 
-Run this once per git repository. Pass your chosen model — it's stored in `.commai/.config` and used on every subsequent commit.
+Run this once per git repository. Pass your chosen model — it's stored in `.commai/.config` and used on every subsequent commit. The provider (Claude or OpenAI) is resolved automatically from the model family.
 
 ```bash
 cd your-project
+
+# Claude
 commai install --model sonnet@latest
+
+# OpenAI
+commai install --model gpt@latest
 ```
 
 With all options explicit:
@@ -93,22 +89,32 @@ If you run `git commit` again without staged changes, commai exits gracefully (e
 
 ### Environment Variables
 
-| Variable            | Required | Default | Description                                                                                    |
-| ------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | Yes      | —       | Your Anthropic API key (starts with `sk-ant-`). [Get one here](https://console.anthropic.com). |
+Only the key for your chosen provider is required. commai infers the provider from the model family in `--model`.
+
+| Variable            | Required for  | Description                                                                               |
+| ------------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | Claude models | Anthropic API key (starts with `sk-ant-`). [Get one here](https://console.anthropic.com). |
+| `OPENAI_API_KEY`    | OpenAI models | OpenAI API key (starts with `sk-`). [Get one here](https://platform.openai.com/api-keys). |
 
 ### .env File Loading
 
-commai loads environment variables in this order (later values override earlier ones):
+commai loads environment variables in this order (shell always wins):
 
-1. `~/.commai/.env` (global, shared across projects)
-2. `.env` in your project root (project-specific)
-3. Shell environment (highest precedence)
+1. `~/.commai/.env` — global, applied first (lower precedence)
+2. `.env` in your project root — applied second, overrides global
+3. Shell environment — always wins over both
 
-Example project `.env`:
+Example `~/.commai/.env` (global, covers all your projects):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-abc123...
+OPENAI_API_KEY=sk-xyz789...
+```
+
+Example project `.env` (project-specific override):
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-project-specific...
 ```
 
 ## Commands
@@ -177,43 +183,69 @@ commai generate .git/COMMIT_EDITMSG
 **Exit codes:**
 
 - `0` — Success, or non-fatal failure (AI error, network timeout, user cancelled). Commit is never blocked.
-- `1` — Configuration error (missing `ANTHROPIC_API_KEY`, not a git repo, invalid model family).
+- `1` — Configuration error (missing API key, `commai install` not run, not a git repo, unknown model family).
 
 ## Model Selection
 
 ### Alias Format
 
-Models are specified as `<family>@<version>`:
+Models are specified as `<family>@<version>`. The family determines both the provider and the model series. Raw model IDs are also accepted.
 
-- `sonnet@latest` — Latest Claude 3.5 Sonnet (recommended for best results)
-- `haiku@latest` — Latest Claude 3.5 Haiku (fastest, cheapest)
-- `haiku@4.0.25` — Specific version
-- `claude-opus-4-1-20250805` — Raw model ID (if you know the exact version)
+**Claude (Anthropic):**
+
+| Alias                        | Description                                |
+| ---------------------------- | ------------------------------------------ |
+| `sonnet@latest`              | Latest Claude Sonnet — best quality        |
+| `haiku@latest`               | Latest Claude Haiku — fastest and cheapest |
+| `opus@latest`                | Latest Claude Opus — highest capability    |
+| `haiku@4.0.25`               | Specific Claude version                    |
+| `claude-3-5-sonnet-20241022` | Raw model ID                               |
+
+**OpenAI:**
+
+| Alias         | Description                              |
+| ------------- | ---------------------------------------- |
+| `gpt@latest`  | Latest GPT model                         |
+| `o@latest`    | Latest OpenAI reasoning model (o-series) |
+| `gpt@4-turbo` | Specific GPT version                     |
+| `gpt-4-turbo` | Raw model ID                             |
+
+### Provider Auto-Detection
+
+The provider is resolved from the model family — no extra config needed:
+
+| Family                    | Provider           | API key required    |
+| ------------------------- | ------------------ | ------------------- |
+| `sonnet`, `haiku`, `opus` | Claude (Anthropic) | `ANTHROPIC_API_KEY` |
+| `gpt`, `o`                | OpenAI             | `OPENAI_API_KEY`    |
 
 ### How Resolution Works
 
-1. commai sends `<family>@<version>` to the Anthropic `models.list()` API
-2. Filters for models matching `<family>` (case-insensitive)
-3. If `version` is `latest`, picks the most recently created matching model
-4. Otherwise, filters for models containing the version string (dots replaced with dashes)
-5. Returns the most recently created match, or falls back to the raw input if no matches found
+1. Extract the family from `<family>@<version>` (or scan the raw ID for a known family substring)
+2. Look up the provider from the family map above
+3. Query the provider's `models.list()` API and filter by family (case-insensitive)
+4. If `version` is `latest`, pick the most recently created match; otherwise filter by version string (dots → dashes)
+5. Fall back to the input as-is if no match is found or the API call fails
 
 ### Available Models
 
-Query available models:
+**Claude:**
 
 ```bash
 curl https://api.anthropic.com/v1/models \
   -H "api-key: $ANTHROPIC_API_KEY" | jq '.data[].id'
 ```
 
-Common aliases:
-
-- `sonnet@latest` → `claude-3-5-sonnet-20241022` (or newer)
-- `haiku@latest` → `claude-3-5-haiku-20241022` (or newer)
-- `opus@latest` → `claude-3-opus-20250219` (or newer)
-
 See the [Anthropic models page](https://docs.anthropic.com/en/docs/about/models) for up-to-date availability.
+
+**OpenAI:**
+
+```bash
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY" | jq '.data[].id'
+```
+
+See the [OpenAI models page](https://platform.openai.com/docs/models) for up-to-date availability.
 
 ## How It Works
 
@@ -226,7 +258,7 @@ See the [Anthropic models page](https://docs.anthropic.com/en/docs/about/models)
    ├─ Check: existing user content? (skip if yes)
    ├─ Check: changes to stage? (skip if no)
    ├─ Create AI service (resolve model, load API key)
-   ├─ Generate message via Claude API
+   ├─ Generate message via AI provider API (Claude or OpenAI)
    ├─ Interactive prompt (accept/regenerate/cancel)
    └─ Write to commit file or run `git commit -m`
    ↓
@@ -254,27 +286,28 @@ This allows commai to coexist with husky, commitlint, and other pre-commit tooli
 
 ## Troubleshooting
 
-### "ANTHROPIC_API_KEY environment variable is not set"
+### "ANTHROPIC_API_KEY environment variable is not set" / "OPENAI_API_KEY environment variable is not set"
 
-The hook can't find your API key.
+The hook can't find the API key for the configured model's provider.
 
 **Fixes:**
 
-1. Check `.env` in your project root exists and contains `ANTHROPIC_API_KEY=sk-ant-...`
-2. Check `~/.commai/.env` exists if using a global key
-3. Check shell environment: `echo $ANTHROPIC_API_KEY`
-4. Make sure the file isn't ignored by git (if shared in a private repo, add to `.gitignore`)
+1. Check which provider your model uses — see the [Provider Auto-Detection](#provider-auto-detection) table
+2. Check `.env` in your project root contains the right key (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`)
+3. Check `~/.commai/.env` exists if using a global key
+4. Verify shell environment: `echo $ANTHROPIC_API_KEY` or `echo $OPENAI_API_KEY`
+5. If the `.env` is in a shared repo, make sure it's in `.gitignore` to avoid committing secrets
 
 ### "Could not resolve model alias"
 
-The model `<family>@<version>` didn't match any models in the API.
+The model `<family>@<version>` didn't match any models in the provider's API.
 
 **Fixes:**
 
-1. Check your API key is correct (try a fresh one from [console.anthropic.com](https://console.anthropic.com))
-2. Verify the family name: `sonnet`, `haiku`, `opus` (case-insensitive)
-3. Check for typos in the version: `latest` is the safest default
-4. Use the raw model ID if known: `claude-3-5-sonnet-20241022`
+1. Verify the family name — Claude: `sonnet`, `haiku`, `opus`; OpenAI: `gpt`, `o` (case-insensitive)
+2. Check for typos in the version: `latest` is the safest default
+3. Check the API key for the correct provider is set and valid
+4. Use the raw model ID as a fallback (e.g., `claude-3-5-sonnet-20241022` or `gpt-4-turbo`)
 
 ### Hook isn't running / commit skips message generation
 
@@ -318,12 +351,11 @@ chmod +x .commai/prepare-commit-msg
 
 ### "AI call failed" / Network timeout
 
-Network issues or API errors. commai logs the error and exits 0 (non-fatal).
+Network issues or API errors. commai logs the error and exits 0 (non-fatal) — your commit will still proceed.
 
-**Debug:**
+**Debug (Claude):**
 
 ```bash
-# Test the API key manually
 curl https://api.anthropic.com/v1/messages \
   -H "api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
@@ -331,7 +363,16 @@ curl https://api.anthropic.com/v1/messages \
   -d '{"model":"claude-3-5-haiku-20241022","max_tokens":100,"messages":[{"role":"user","content":"hi"}]}'
 ```
 
-If this fails, your API key or network connectivity is the issue. Your commit will still proceed.
+**Debug (OpenAI):**
+
+```bash
+curl https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","max_tokens":100,"messages":[{"role":"user","content":"hi"}]}'
+```
+
+If either call fails, the issue is your API key or network connectivity.
 
 ## License
 
