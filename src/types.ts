@@ -1,5 +1,5 @@
 /** AI provider identifier — add new provider strings here as they are supported. */
-export type AIProvider = "claude";
+export type AIProvider = "claude" | "openai";
 
 /** Minimal contract every AI service must implement. */
 export interface AIService {
