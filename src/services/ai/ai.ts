@@ -1,5 +1,6 @@
 import { type AIProvider, type AIService } from "../../types.js";
 import { ClaudeService } from "./claude/claude.js";
+import { OpenAIService } from "./openai/openai.js";
 
 export type { AIProvider, AIService };
 
@@ -22,6 +23,8 @@ export function createAIService(
   switch (provider) {
     case "claude":
       return new ClaudeService(options.model);
+    case "openai":
+      return new OpenAIService(options.model);
     default:
       throw new Error(`Unknown AI provider: "${provider}".`);
   }
