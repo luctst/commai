@@ -19,11 +19,25 @@ describe("resolveProvider", () => {
     assert.equal(resolveProvider("claude-sonnet-4-20250514"), "claude");
   });
 
+  it("returns 'openai' for gpt@latest alias", () => {
+    assert.equal(resolveProvider("gpt@latest"), "openai");
+  });
+
+  it("returns 'openai' for raw model ID containing gpt family", () => {
+    assert.equal(resolveProvider("gpt-4o"), "openai");
+  });
+
   it("throws for an unknown family alias", () => {
-    assert.throws(() => resolveProvider("gpt@latest"), /Unknown model family/);
+    assert.throws(
+      () => resolveProvider("mistral@latest"),
+      /Unknown model family/,
+    );
   });
 
   it("throws for a raw model ID with no known family", () => {
-    assert.throws(() => resolveProvider("gpt-4o"), /Cannot determine provider/);
+    assert.throws(
+      () => resolveProvider("mistral-7b-instruct"),
+      /Cannot determine provider/,
+    );
   });
 });
