@@ -38,8 +38,8 @@ No build step — TypeScript is executed directly via `tsx`.
 
 1. Reads `CommaiConfig` from `.commai/.config`
 2. `src/git.ts` reads the staged diff (`git diff --cached`)
-3. `src/services/ai/resolveModel.ts` determines the provider (e.g., `"claude"` from a model string like `"sonnet@latest"` or `"claude-sonnet-4-20250514"`)
-4. `src/services/ai/ai.ts` factory `createAIService()` instantiates the provider's service (currently only `ClaudeService`)
+3. `src/services/ai/resolveModel.ts` determines the provider (e.g., `"claude"` or `"openai"`) from a model string like `"sonnet@latest"`, `"gpt-4-turbo"`, or a raw model ID
+4. `src/services/ai/ai.ts` factory `createAIService()` instantiates the provider's service (`ClaudeService` or `OpenAIService`)
 5. `src/prompt.ts` runs the interactive accept/regenerate/cancel loop via `node:readline` (if `interactive: true`)
 6. `src/generate.ts` orchestrates the above and writes the result to the commit message file (or calls `git commit -m` directly when `autoCommit: true`)
 
@@ -47,10 +47,10 @@ No build step — TypeScript is executed directly via `tsx`.
 
 **Provider resolution** is split into two concerns:
 
-- `resolveProvider(modelString)` in `src/services/ai/resolveModel.ts` — synchronous function that determines which AI provider (e.g., `"claude"`) a model string maps to. Handles both alias format (`"sonnet@latest"`) and raw model IDs (`"claude-sonnet-4-20250514"`). Throws if no known family is found.
-- `createAIService(provider, { model? })` in `src/services/ai/ai.ts` — factory that instantiates the service for a given provider.
+- `resolveProvider(modelString)` in `src/services/ai/resolveModel.ts` — synchronous function that determines which AI provider a model string maps to. Supports Claude families (`sonnet`, `opus`, `haiku`) and OpenAI families (`gpt`, `o`) in both alias format (`"sonnet@latest"`, `"gpt-4@latest"`) and raw model IDs (`"claude-sonnet-4-20250514"`, `"gpt-4-turbo"`). Throws if no known family is found.
+- `createAIService(provider, { model? })` in `src/services/ai/ai.ts` — factory that instantiates the service for a given provider (`"claude"` → `ClaudeService`, `"openai"` → `OpenAIService`).
 
-Each service (e.g., `ClaudeService`) handles its own **model ID resolution**. `ClaudeService.getModel()` resolves aliases to concrete model IDs via `models.list()`, falling back to the input as-is on error or if it's not an alias.
+Each service handles its own **model ID resolution**. `ClaudeService.getModel()` and `OpenAIService.getModel()` each resolve aliases to concrete model IDs via their respective `models.list()` APIs, falling back to the input as-is on error or if it's not an alias.
 
 `AIService` interface is intentionally minimal: `generateCommitMessage(diff, instructions?)`. New providers go in `src/services/ai/<provider>/` and get a case in the `createAIService()` factory switch.
 
@@ -76,7 +76,7 @@ Each service (e.g., `ClaudeService`) handles its own **model ID resolution**. `C
 
 ### Error Handling Convention
 
-AI/network failures exit 0 (non-fatal — never block a commit). Only configuration errors (missing API key, not a git repo) exit 1.
+AI/network failures exit 0 (non-fatal — never block a commit). Only configuration errors (missing API key like `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, not a git repo) exit 1.
 
 ## Testing
 
@@ -85,8 +85,9 @@ Tests use `node:test` (built-in) + `node:assert/strict`, run via `tsx --test`. N
 - **git.test.ts / install.test.ts**: Integration tests using real temporary git repos (`mkdtemp` + `git init`). Tests `chdir` into the temp repo and restore cwd in `finally` blocks.
 - **generate.test.ts**: Injects a mock `AIService` via the `service` option on `generate()`.
 - **services/claude.test.ts**: Injects a mock Anthropic client via the `ClaudeService` constructor's second argument.
+- **services/openai.test.ts**: Injects a mock OpenAI client via the `OpenAIService` constructor's second argument.
 
-Both `generate()` and `ClaudeService` accept optional dependency injection parameters specifically for testability — no module mocking needed.
+Both `generate()` and service constructors (`ClaudeService`, `OpenAIService`) accept optional dependency injection parameters specifically for testability — no module mocking needed.
 
 ## CI/CD
 
