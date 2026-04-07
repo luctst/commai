@@ -8,6 +8,6 @@ export default defineConfig({
   minify: true,
   sourcemap: false,
   deps: {
-    neverBundle: ["@anthropic-ai/sdk", "chalk", "commander"],
+    neverBundle: ["@anthropic-ai/sdk", "openai", "chalk", "commander"],
   },
 });
