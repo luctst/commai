@@ -1,5 +1,4 @@
-import OpenAI from "openai";
-import { type AIService } from "../../../types.js";
+import { type AIService, type FetchFn } from "../../../types.js";
 import {
   MAX_TOKENS,
   MAX_DIFF_CHARS,
@@ -9,15 +8,26 @@ import {
 import * as logger from "../../../utils/logger.js";
 
 const DEFAULT_MODEL = "gpt@latest";
+const API_BASE = "https://api.openai.com/v1";
+
+/** Minimal types for the OpenAI API responses we use. */
+interface ModelsResponse {
+  data: Array<{ id: string; created: number }>;
+}
+
+interface ChatCompletionResponse {
+  choices: Array<{ message?: { content: string | null } }>;
+}
 
 export class OpenAIService implements AIService {
   private modelInput: string;
   private resolvedModel?: string;
-  private client: OpenAI;
+  private apiKey: string;
+  private fetchFn: FetchFn;
 
-  constructor(model?: string, client?: OpenAI) {
+  constructor(model?: string, fetchFn?: FetchFn) {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey && !client) {
+    if (!apiKey && !fetchFn) {
       logger.error("OPENAI_API_KEY environment variable is not set.");
       logger.warn(
         "Set it in ~/.commai/.env or a .env in your project root (OPENAI_API_KEY=sk-...)" +
@@ -26,19 +36,28 @@ export class OpenAIService implements AIService {
       process.exit(1);
     }
 
+    this.apiKey = apiKey ?? "";
     this.modelInput = model ?? DEFAULT_MODEL;
-    this.client = client ?? new OpenAI({ apiKey });
+    this.fetchFn = fetchFn ?? globalThis.fetch;
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      authorization: `Bearer ${this.apiKey}`,
+      "content-type": "application/json",
+    };
   }
 
   private async resolveOpenAIModel(input: string): Promise<string> {
     const [family, version] = input.split("@", 2);
 
-    const models: OpenAI.Models.Model[] = [];
-    for await (const model of this.client.models.list()) {
-      models.push(model);
-    }
+    const res = await this.fetchFn(`${API_BASE}/models`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) return input;
 
-    const matching = models
+    const body = (await res.json()) as ModelsResponse;
+    const matching = body.data
       .filter((m) => m.id.toLowerCase().includes(family.toLowerCase()))
       .filter((m) =>
         version === "latest" ? true : m.id.includes(version.replace(".", "-")),
@@ -51,11 +70,16 @@ export class OpenAIService implements AIService {
 
   private async getModel(): Promise<string> {
     if (!this.resolvedModel) {
-      try {
-        this.resolvedModel = await this.resolveOpenAIModel(this.modelInput);
-      } catch {
-        logger.warn("Could not resolve model alias, using as-is.");
+      // Raw model ID (no @) — use as-is, skip the models.list() call
+      if (!this.modelInput.includes("@")) {
         this.resolvedModel = this.modelInput;
+      } else {
+        try {
+          this.resolvedModel = await this.resolveOpenAIModel(this.modelInput);
+        } catch {
+          logger.warn("Could not resolve model alias, using as-is.");
+          this.resolvedModel = this.modelInput;
+        }
       }
     }
     return this.resolvedModel;
@@ -76,16 +100,26 @@ export class OpenAIService implements AIService {
       userMessage += `\n\nAdditional instructions: ${instructions}`;
     }
 
-    const response = await this.client.chat.completions.create({
-      model: await this.getModel(),
-      max_tokens: MAX_TOKENS,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
+    const res = await this.fetchFn(`${API_BASE}/chat/completions`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        model: await this.getModel(),
+        max_tokens: MAX_TOKENS,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+      }),
     });
 
-    const content = response.choices[0]?.message?.content;
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => "unknown error");
+      throw new Error(`OpenAI API error (${res.status}): ${errorText}`);
+    }
+
+    const body = (await res.json()) as ChatCompletionResponse;
+    const content = body.choices[0]?.message?.content;
     return content ? content.trim() : "";
   }
 }
