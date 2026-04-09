@@ -57,12 +57,12 @@ export async function generate(
     diff = await getStagedDiff();
   } catch {
     // Not in a git repo or git failed — exit silently
-    process.exit(0);
+    return;
   }
 
   if (!diff) {
     // No staged changes — let git proceed
-    process.exit(0);
+    return;
   }
 
   // 2. Check if commit file already has user content
@@ -79,7 +79,7 @@ export async function generate(
 
   if (nonCommentLines.length > 0) {
     // User already typed a message — don't overwrite
-    process.exit(0);
+    return;
   }
 
   // 3. Create AI service
@@ -88,7 +88,7 @@ export async function generate(
       service = createAIService(resolveProvider(model), { model });
     } catch (err) {
       logger.error((err as Error).message);
-      process.exit(0);
+      return;
     }
   }
 
@@ -98,11 +98,11 @@ export async function generate(
     message = await service.generateCommitMessage(diff);
   } catch (err) {
     logger.error(`AI call failed: ${(err as Error).message}`);
-    process.exit(1);
+    return;
   }
 
   // 5. Interactive or direct mode
-  if (interactive) {
+  if (interactive && process.stdin.isTTY) {
     let done = false;
     while (!done) {
       const result = await promptUserForAction(message);
@@ -120,12 +120,12 @@ export async function generate(
             );
           } catch (err) {
             logger.error(`AI call failed: ${(err as Error).message}`);
-            process.exit(0);
+            return;
           }
           break;
 
         case "cancel":
-          process.exit(0);
+          return;
       }
     }
   }
