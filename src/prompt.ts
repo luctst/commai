@@ -7,7 +7,12 @@ export type { PromptAction };
 
 function ask(rl: Interface, question: string): Promise<string> {
   return new Promise((resolve) => {
-    rl.question(question, (answer) => resolve(answer.trim()));
+    const onClose = () => resolve("");
+    rl.once("close", onClose);
+    rl.question(question, (answer) => {
+      rl.removeListener("close", onClose);
+      resolve(answer.trim());
+    });
   });
 }
 
@@ -24,8 +29,7 @@ export async function promptUserForAction(
   if (!rl) {
     rl = createInterface({
       input: process.stdin,
-      output: process.stderr, // stderr so it doesn't pollute stdout if piped
-      terminal: true,
+      output: process.stderr,
     });
   }
 
