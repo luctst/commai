@@ -58,4 +58,7 @@ program
     await generate(file);
   });
 
-program.parse();
+program.parseAsync().catch((err: Error) => {
+  process.stderr.write(`commai: ${err.message}\n`);
+  process.exitCode = 1;
+});
