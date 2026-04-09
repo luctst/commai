@@ -24,10 +24,8 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "chalk": "^5.6.2",
-    "commander": "^13.1.0",
-    "openai": "^6.33.0"
+    "commander": "^13.1.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
