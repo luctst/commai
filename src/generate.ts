@@ -102,7 +102,7 @@ export async function generate(
   }
 
   // 5. Interactive or direct mode
-  if (interactive && process.stdin.isTTY) {
+  if (interactive) {
     let done = false;
     while (!done) {
       const result = await promptUserForAction(message);
