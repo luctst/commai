@@ -1,129 +1,165 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { OpenAIService } from "../../src/services/ai/openai/openai.js";
+import type { FetchFn } from "../../src/types.js";
 
-/** Creates a mock OpenAI client */
-function createMockClient(responseText: string) {
-  return {
-    chat: {
-      completions: {
-        create: async () => ({
-          choices: [{ message: { content: responseText } }],
-        }),
-      },
-    },
-    models: {
-      list: async function* () {
-        yield { id: "gpt-4o-2025-01-01", created: 1 };
-      },
-    },
-  } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+/** Creates a mock fetch that returns the given text from the chat completions endpoint. */
+function createMockFetch(responseText: string): FetchFn {
+  return async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+
+    if (url.endsWith("/models")) {
+      return Response.json({
+        data: [{ id: "gpt-4o-2025-01-01", created: 1 }],
+      });
+    }
+
+    return Response.json({
+      choices: [{ message: { content: responseText } }],
+    });
+  };
 }
 
 describe("OpenAIService", () => {
   it("returns the generated commit message", async () => {
-    const client = createMockClient("feat: add user login");
-    const service = new OpenAIService("gpt-4o", client);
+    const fetchFn = createMockFetch("feat: add user login");
+    const service = new OpenAIService("gpt-4o", fetchFn);
 
     const result = await service.generateCommitMessage("diff content here");
     assert.equal(result, "feat: add user login");
   });
 
   it("trims whitespace from the response", async () => {
-    const client = createMockClient("  fix: remove trailing spaces  \n");
-    const service = new OpenAIService("gpt-4o", client);
+    const fetchFn = createMockFetch("  fix: remove trailing spaces  \n");
+    const service = new OpenAIService("gpt-4o", fetchFn);
 
     const result = await service.generateCommitMessage("diff");
     assert.equal(result, "fix: remove trailing spaces");
   });
 
   it("appends instructions to the prompt when provided", async () => {
-    let capturedMessages: unknown;
-    const client = {
-      chat: {
-        completions: {
-          create: async (params: Record<string, unknown>) => {
-            capturedMessages = params.messages;
-            return {
-              choices: [
-                { message: { content: "refactor: simplify auth logic" } },
-              ],
-            };
-          },
-        },
-      },
-      models: {
-        list: async function* () {
-          yield { id: "gpt-4o-2025-01-01", created: 1 };
-        },
-      },
-    } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    let capturedBody: string = "";
+    const fetchFn: FetchFn = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString();
 
-    const service = new OpenAIService("gpt-4o", client);
+      if (url.endsWith("/models")) {
+        return Response.json({
+          data: [{ id: "gpt-4o-2025-01-01", created: 1 }],
+        });
+      }
+
+      capturedBody = (init?.body as string) ?? "";
+      return Response.json({
+        choices: [{ message: { content: "refactor: simplify auth logic" } }],
+      });
+    };
+
+    const service = new OpenAIService("gpt-4o", fetchFn);
     await service.generateCommitMessage("diff", "focus on the auth changes");
 
-    const messages = capturedMessages as Array<{
-      role: string;
-      content: string;
-    }>;
+    const parsed = JSON.parse(capturedBody);
     // messages[0] is system, messages[1] is user
     assert.ok(
-      messages[1].content.includes(
+      parsed.messages[1].content.includes(
         "Additional instructions: focus on the auth changes",
       ),
     );
   });
 
   it("truncates very long diffs", async () => {
-    let capturedContent: string = "";
-    const client = {
-      chat: {
-        completions: {
-          create: async (params: Record<string, unknown>) => {
-            const msgs = params.messages as Array<{
-              role: string;
-              content: string;
-            }>;
-            capturedContent = msgs[1].content;
-            return {
-              choices: [{ message: { content: "chore: large change" } }],
-            };
-          },
-        },
-      },
-      models: {
-        list: async function* () {
-          yield { id: "gpt-4o-2025-01-01", created: 1 };
-        },
-      },
-    } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    let capturedBody: string = "";
+    const fetchFn: FetchFn = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString();
 
-    const service = new OpenAIService("gpt-4o", client);
+      if (url.endsWith("/models")) {
+        return Response.json({
+          data: [{ id: "gpt-4o-2025-01-01", created: 1 }],
+        });
+      }
+
+      capturedBody = (init?.body as string) ?? "";
+      return Response.json({
+        choices: [{ message: { content: "chore: large change" } }],
+      });
+    };
+
+    const service = new OpenAIService("gpt-4o", fetchFn);
     const longDiff = "x".repeat(200_000);
     await service.generateCommitMessage(longDiff);
 
-    assert.ok(capturedContent.includes("[diff truncated]"));
-    assert.ok(capturedContent.length < 200_000);
+    const parsed = JSON.parse(capturedBody);
+    const userContent = parsed.messages[1].content;
+    assert.ok(userContent.includes("[diff truncated]"));
+    assert.ok(userContent.length < 200_000);
   });
 
   it("returns empty string when response has no content", async () => {
-    const client = {
-      chat: {
-        completions: {
-          create: async () => ({
-            choices: [{ message: { content: null } }],
-          }),
-        },
-      },
-      models: {
-        list: async function* () {
-          yield { id: "gpt-4o-2025-01-01", created: 1 };
-        },
-      },
-    } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const fetchFn: FetchFn = async () => {
+      return Response.json({
+        choices: [{ message: { content: null } }],
+      });
+    };
 
-    const service = new OpenAIService("gpt-4o", client);
+    const service = new OpenAIService("gpt-4o", fetchFn);
     const result = await service.generateCommitMessage("diff");
     assert.equal(result, "");
+  });
+
+  it("skips models.list() call for raw model IDs (no @)", async () => {
+    let modelsListCalled = false;
+    const fetchFn: FetchFn = async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url.endsWith("/models")) {
+        modelsListCalled = true;
+        return Response.json({ data: [] });
+      }
+
+      return Response.json({
+        choices: [{ message: { content: "feat: something" } }],
+      });
+    };
+
+    const service = new OpenAIService("gpt-4o", fetchFn);
+    await service.generateCommitMessage("diff");
+
+    assert.equal(
+      modelsListCalled,
+      false,
+      "models.list() should not be called for raw model IDs",
+    );
+  });
+
+  it("calls models.list() for alias format (with @)", async () => {
+    let modelsListCalled = false;
+    const fetchFn: FetchFn = async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (url.endsWith("/models")) {
+        modelsListCalled = true;
+        return Response.json({
+          data: [{ id: "gpt-4o-2025-01-01", created: 1 }],
+        });
+      }
+
+      return Response.json({
+        choices: [{ message: { content: "feat: something" } }],
+      });
+    };
+
+    const service = new OpenAIService("gpt@latest", fetchFn);
+    await service.generateCommitMessage("diff");
+
+    assert.equal(
+      modelsListCalled,
+      true,
+      "models.list() should be called for alias format",
+    );
   });
 });
