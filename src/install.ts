@@ -97,7 +97,9 @@ export async function install(
   await setGitConfig("core.hooksPath", COMMAI_DIR);
 
   logger.log(`Hooks installed in ${commaiDir}`);
-  logger.warn("Make sure ANTHROPIC_API_KEY is set in your environment.");
+  logger.warn(
+    "Make sure ANTHROPIC_API_KEY or OPENAI_API_KEY is set in your environment.",
+  );
 }
 
 export async function uninstall(): Promise<void> {
