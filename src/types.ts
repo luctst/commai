@@ -1,6 +1,9 @@
 /** AI provider identifier — add new provider strings here as they are supported. */
 export type AIProvider = "claude" | "openai";
 
+/** Fetch function signature — used for dependency injection in AI services. */
+export type FetchFn = typeof globalThis.fetch;
+
 /** Minimal contract every AI service must implement. */
 export interface AIService {
   generateCommitMessage(diff: string, instructions?: string): Promise<string>;
