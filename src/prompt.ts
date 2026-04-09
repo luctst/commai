@@ -1,4 +1,6 @@
 import { createInterface, type Interface } from "node:readline";
+import { openSync } from "node:fs";
+import { ReadStream as TtyReadStream } from "node:tty";
 import chalk from "chalk";
 import { type PromptAction } from "./types.js";
 import * as logger from "./utils/logger.js";
@@ -25,10 +27,24 @@ export async function promptUserForAction(
   rl?: Interface,
 ): Promise<PromptAction> {
   const ownRl = !rl;
+  let ttyStream: TtyReadStream | undefined;
 
   if (!rl) {
+    // Git hooks redirect process.stdin to a pipe that never sends data.
+    // Open /dev/tty directly to get a real terminal fd for readline input,
+    // bypassing the redirection. Falls back to process.stdin if unavailable
+    // (GUI clients, CI) — the ask() close handler then resolves "" immediately.
+    let input: NodeJS.ReadableStream = process.stdin;
+    try {
+      const fd = openSync("/dev/tty", "r+");
+      ttyStream = new TtyReadStream(fd);
+      input = ttyStream;
+    } catch {
+      // No controlling terminal — fall back to process.stdin
+    }
+
     rl = createInterface({
-      input: process.stdin,
+      input,
       output: process.stderr,
     });
   }
@@ -74,6 +90,7 @@ export async function promptUserForAction(
   } finally {
     if (ownRl) {
       rl.close();
+      ttyStream?.destroy();
     }
   }
 }
