@@ -45,12 +45,19 @@ No build step — TypeScript is executed directly via `tsx`.
 
 ### AI Service Layer
 
+Services use native `fetch` instead of SDK clients for HTTP communication. This reduces dependencies and gives explicit control over API contracts.
+
 **Provider resolution** is split into two concerns:
 
 - `resolveProvider(modelString)` in `src/services/ai/resolveModel.ts` — synchronous function that determines which AI provider a model string maps to. Supports Claude families (`sonnet`, `opus`, `haiku`) and OpenAI families (`gpt`, `o`) in both alias format (`"sonnet@latest"`, `"gpt-4@latest"`) and raw model IDs (`"claude-sonnet-4-20250514"`, `"gpt-4-turbo"`). Throws if no known family is found.
 - `createAIService(provider, { model? })` in `src/services/ai/ai.ts` — factory that instantiates the service for a given provider (`"claude"` → `ClaudeService`, `"openai"` → `OpenAIService`).
 
-Each service handles its own **model ID resolution**. `ClaudeService.getModel()` and `OpenAIService.getModel()` each resolve aliases to concrete model IDs via their respective `models.list()` APIs, falling back to the input as-is on error or if it's not an alias.
+Each service handles its own **model ID resolution**. `ClaudeService.getModel()` and `OpenAIService.getModel()` each resolve aliases to concrete model IDs via their respective `models.list()` APIs if the model is an alias (contains `@`); raw model IDs (e.g., `"claude-sonnet-4-20250514"`, `"gpt-4-turbo"`) skip the API call entirely and are used as-is. Falls back to input as-is on API errors.
+
+**Dependency injection for testing:** `ClaudeService` and `OpenAIService` constructors accept:
+
+- `model?: string` — override the model passed to `createAIService()`
+- `fetchFn?: FetchFn` — inject a custom `fetch` function. Tests provide a mock that accepts a URL and returns a `Response` object with the appropriate shape for the API.
 
 `AIService` interface is intentionally minimal: `generateCommitMessage(diff, instructions?)`. New providers go in `src/services/ai/<provider>/` and get a case in the `createAIService()` factory switch.
 
@@ -76,7 +83,7 @@ Each service handles its own **model ID resolution**. `ClaudeService.getModel()`
 
 ### Error Handling Convention
 
-AI/network failures exit 0 (non-fatal — never block a commit). Only configuration errors (missing API key like `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, not a git repo) exit 1.
+AI/network failures exit 0 (non-fatal — never block a commit). API errors are thrown with HTTP status codes and error messages (e.g., "API request failed: 401 Unauthorized"), but these are caught in `generate()` and logged without exiting with error code. Only configuration errors (missing API key like `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, not a git repo) exit 1.
 
 ## Testing
 
@@ -84,8 +91,8 @@ Tests use `node:test` (built-in) + `node:assert/strict`, run via `tsx --test`. N
 
 - **git.test.ts / install.test.ts**: Integration tests using real temporary git repos (`mkdtemp` + `git init`). Tests `chdir` into the temp repo and restore cwd in `finally` blocks.
 - **generate.test.ts**: Injects a mock `AIService` via the `service` option on `generate()`.
-- **services/claude.test.ts**: Injects a mock Anthropic client via the `ClaudeService` constructor's second argument.
-- **services/openai.test.ts**: Injects a mock OpenAI client via the `OpenAIService` constructor's second argument.
+- **services/claude.test.ts**: Injects a mock `fetch` function via the `ClaudeService` constructor. The mock accepts a URL and returns a `Response` object matching the Anthropic API shape (e.g., `{ content: [{ type: "text", text: "..." }] }`). Also tests raw model IDs (e.g., `"claude-sonnet-4-20250514"`) which skip the `models.list()` API call.
+- **services/openai.test.ts**: Injects a mock `fetch` function via the `OpenAIService` constructor. The mock returns a `Response` matching the OpenAI API shape (e.g., `{ choices: [{ message: { content: "..." } }] }`). Also tests raw model IDs which bypass `models.list()`.
 
 Both `generate()` and service constructors (`ClaudeService`, `OpenAIService`) accept optional dependency injection parameters specifically for testability — no module mocking needed.
 
