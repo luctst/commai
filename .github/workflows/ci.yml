@@ -2,8 +2,17 @@ name: CI
 
 on:
   push:
+    branches: [master]
+    paths:
+      - 'bin/**'
+      - 'src/**/*'
+      - 'test/**/*'
   pull_request:
     branches: [master]
+    paths:
+      - 'bin/**'
+      - 'src/**/*'
+      - 'test/**/*'
 
 jobs:
   lint:
