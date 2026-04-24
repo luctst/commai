@@ -1,6 +1,6 @@
 {
-  "name": "commai",
-  "version": "1.0.0",
+  "name": "@luctst/commai",
+  "version": "0.1.0",
   "description": "Generate git commit messages using AI",
   "type": "module",
   "bin": {
@@ -11,8 +11,19 @@
   },
   "files": [
     "dist/",
-    "bin/commai.mjs"
+    "bin/commai.js"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luctst/commai.git"
+  },
+  "homepage": "https://github.com/luctst/commai#readme",
+  "bugs": {
+    "url": "https://github.com/luctst/commai/issues"
+  },
   "scripts": {
     "build": "tsdown",
     "prepublishOnly": "pnpm run typecheck && pnpm run build",
@@ -45,7 +56,12 @@
     "commit",
     "ai",
     "claude",
-    "cli"
+    "openai",
+    "cli",
+    "commit-message",
+    "developer-tools",
+    "git-hook",
+    "prepare-commit-msg"
   ],
   "license": "MIT",
   "packageManager": "pnpm@10.32.1"

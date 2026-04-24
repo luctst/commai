@@ -1,89 +1,128 @@
 # commai
 
-Generate git commit messages using AI.
+Generate git commit messages using AI — the only dependency-light, hook-chain-compatible tool that doesn't stomp on your workflow.
 
-**commai** is a CLI tool that automatically generates commit messages based on your staged changes. It supports Claude (Anthropic) and OpenAI models, integrates with git via the `prepare-commit-msg` hook, and supports interactive accept/regenerate/cancel workflows. The provider is auto-detected from the model name — no extra configuration needed.
+[![npm](https://img.shields.io/npm/v/@luctst/commai?style=flat)](https://www.npmjs.com/package/@luctst/commai)
+[![CI](https://img.shields.io/github/actions/workflow/status/luctst/commai/ci.yml?branch=main&style=flat)](https://github.com/luctst/commai/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
+
+## Why commai?
+
+- **2 production dependencies.** No bloat. Competitors ship 12–20+ transitive deps; commai ships chalk and commander.
+- **Hook chain compatible.** Works with husky, commitlint, `.git/hooks/`. Most tools overwrite your hooks; commai chains to them.
+- **AI errors don't block.** Network timeout? API down? Exit 0. Your commit proceeds. No friction.
+- **Multi-provider.** Claude and OpenAI. Model name tells us which API to hit—no config wiring needed.
+- **Native fetch, no SDKs.** Explicit HTTP calls over bloated SDK clients. Fast, predictable, lean.
+
+---
 
 ## Installation
 
-Install globally or per-project. Requires Node 18+.
+Requires Node 18+.
 
 ```bash
-# Global (recommended for single-user machines)
-npm install -g commai
+# Global (recommended)
+npm install -g @luctst/commai
 
-# Or per-project
-npm install --save-dev commai
-pnpm add -D commai
+# Per-project
+npm install --save-dev @luctst/commai
+pnpm add -D @luctst/commai
 ```
 
 ## Quick Start
 
-### 1. Set your API key
-
-Set the key for your chosen provider. commai infers the provider from the model name, so only the relevant key needs to be set.
-
-**Claude (Anthropic)** — required for `sonnet`, `haiku`, `opus` models:
+### 1. Set API key
 
 ```bash
+# Claude (Anthropic)
 export ANTHROPIC_API_KEY=sk-ant-...
-```
 
-**OpenAI** — required for `gpt`, `o` models:
-
-```bash
+# OpenAI
 export OPENAI_API_KEY=sk-...
 ```
 
-You can also store keys in a `.env` file to avoid setting them in every shell session. See [Environment Variables](#environment-variables) for all options.
+Or store in `~/.commai/.env` or `.env` (project root) to persist across sessions. See [Environment Variables](#environment-variables) for details.
 
-### 2. Install the hook
-
-Run this once per git repository. Pass your chosen model — it's stored in `.commai/.config` and used on every subsequent commit. The provider (Claude or OpenAI) is resolved automatically from the model family.
+### 2. Install hook (per repo)
 
 ```bash
 cd your-project
-
-# Claude
 commai install --model sonnet@latest
-
-# OpenAI
-commai install --model gpt@latest
 ```
 
-With all options explicit:
-
-```bash
-commai install --model haiku@latest --interactive --auto-commit
-```
-
-This creates `.commai/prepare-commit-msg`, writes `.commai/.config`, and sets `git config core.hooksPath .commai`.
+Stores config to `.commai/.config`, chains to husky/`.git/hooks/`, sets `core.hooksPath`.
 
 ### 3. Make a commit
 
 ```bash
 git add .
 git commit
-
-# Interactive prompt appears:
-#
-#  Generated commit message:
-#  ────────────────────────────────────────
-#  feat: add user authentication
-#  ────────────────────────────────────────
-#
-#    (a) Accept
-#    (r) Regenerate
-#    (c) Cancel
-#
-#  >
 ```
 
-- **Accept (a)**: Use the message and proceed with the commit.
-- **Regenerate (r)**: Ask for optional instructions and generate a new message.
-- **Cancel (c)**: Abort the commit; you can edit and retry.
+Interactive prompt:
 
-If you run `git commit` again without staged changes, commai exits gracefully (exit code 0). If you've already typed a message, commai respects it and doesn't override.
+```
+Generated commit message:
+────────────────────────────────────────
+feat: add user authentication
+────────────────────────────────────────
+
+  (a) Accept
+  (r) Regenerate
+  (c) Cancel
+
+>
+```
+
+- **a** — Accept and commit
+- **r** — Regenerate with optional custom instructions
+- **c** — Cancel; edit and retry
+
+**Graceful:** No staged changes? User message already typed? Merge/amend context? commai skips generation. Your workflow, uninterrupted.
+
+---
+
+## Why commai? (Detailed)
+
+### Minimal Dependencies
+
+Most AI commit tools pull in 12–20+ transitive packages. commai uses two: **chalk** (color output) and **commander** (CLI parsing). That's it.
+
+Why it matters: smaller attack surface, faster installs, fewer breakage vectors when deps update.
+
+### Hook Chain Compatibility
+
+Your repo likely already has hooks. husky, commitlint, custom scripts in `.git/hooks/`. commai chains to them instead of replacing:
+
+```
+.commai/prepare-commit-msg
+  ├─ Run `commai generate`
+  ├─ Then check `.husky/prepare-commit-msg`
+  └─ Then check `.git/hooks/prepare-commit-msg`
+```
+
+If commai isn't installed, those tools still run. If you uninstall commai, they continue working. No cleanup, no breakage.
+
+### AI Errors Don't Block Commits
+
+Network timeout? API rate-limit? Invalid key? commai logs the error and exits 0. Your commit still proceeds. You're never stuck.
+
+This is intentional. AI is best-effort—comments, linting, tests all block commits; message generation shouldn't.
+
+### Multi-Provider Out of the Box
+
+Pass `--model sonnet@latest` or `--model gpt-4-turbo`. commai infers the provider from the model name:
+
+- `sonnet`, `haiku`, `opus` → Anthropic API
+- `gpt`, `o` → OpenAI API
+
+No separate config, no API URL wiring, no provider plugins. The model string tells us everything.
+
+### Native Fetch, Not SDKs
+
+commai uses `fetch` directly instead of `@anthropic-sdk/sdk` or `openai`. Fewer layers, explicit HTTP, faster debugging. You can read the source and understand exactly what's hitting the API.
+
+---
 
 ## Configuration
 

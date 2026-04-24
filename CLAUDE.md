@@ -23,6 +23,8 @@ No build step — TypeScript is executed directly via `tsx`.
 
 **commai** is a CLI tool that generates git commit messages using AI. It integrates with git via the `prepare-commit-msg` hook.
 
+The npm package is published as **`@luctst/commai`**, but the CLI command installed globally or locally is simply `commai`.
+
 ### Flow
 
 `bin/commai.js` (thin Node shim) → `bin/cli.ts` (commander dispatch) → command handlers in `src/`
@@ -100,3 +102,4 @@ Both `generate()` and service constructors (`ClaudeService`, `OpenAIService`) ac
 
 - `.github/workflows/ci.yml` — tests on push/PR, Node 18/20/22 matrix
 - `.github/workflows/publish.yml` — npm publish with provenance on `v*` tag push (requires `NPM_TOKEN` secret)
+- `.github/actions/commai/action.yml` — composite GitHub Action for CI workflows. Installs `@luctst/commai`, auto-detects the API provider from the model family, configures hooks, and generates commit messages. Use with `- uses: luctst/commai@v1`.

@@ -1,0 +1,124 @@
+name: commai
+description: |
+  Generate AI-powered git commit messages from staged changes using commai.
+  Supports Anthropic (Claude) and OpenAI models.
+
+  Usage:
+    - uses: luctst/commai@v1
+      with:
+        model: 'sonnet@latest'
+        api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+branding:
+  icon: git-commit
+  color: purple
+
+inputs:
+  model:
+    description: "Model to use (e.g. sonnet@latest, gpt@latest, haiku@latest)"
+    required: true
+  api-key:
+    description: "API key for the AI provider (ANTHROPIC_API_KEY or OPENAI_API_KEY, auto-detected from model family)"
+    required: true
+  auto-commit:
+    description: "Whether to auto-commit with the generated message"
+    required: false
+    default: "false"
+
+outputs:
+  message:
+    description: "The generated commit message"
+    value: ${{ steps.generate.outputs.message }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install commai
+      shell: bash
+      run: npm install -g @luctst/commai
+
+    - name: Detect provider and set API key
+      id: provider
+      shell: bash
+      run: |
+        MODEL="${{ inputs.model }}"
+        MODEL_LOWER="$(echo "$MODEL" | tr '[:upper:]' '[:lower:]')"
+
+        # Extract family from alias format (family@version) or raw model ID
+        if [[ "$MODEL_LOWER" == *"@"* ]]; then
+          FAMILY="${MODEL_LOWER%%@*}"
+        else
+          FAMILY="$MODEL_LOWER"
+        fi
+
+        # Map family to provider env var
+        # Claude families: sonnet, opus, haiku
+        # OpenAI families: gpt, o
+        if [[ "$FAMILY" == *"sonnet"* ]] || [[ "$FAMILY" == *"opus"* ]] || [[ "$FAMILY" == *"haiku"* ]] || [[ "$FAMILY" == *"claude"* ]]; then
+          echo "env_var=ANTHROPIC_API_KEY" >> "$GITHUB_OUTPUT"
+        elif [[ "$FAMILY" == *"gpt"* ]] || [[ "$FAMILY" == "o" ]] || [[ "$FAMILY" == o[0-9]* ]]; then
+          echo "env_var=OPENAI_API_KEY" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::Cannot determine AI provider for model '$MODEL'. Use a known family (sonnet, opus, haiku, gpt, o) or a raw model ID containing a known family name."
+          exit 1
+        fi
+
+    - name: Configure commai
+      shell: bash
+      env:
+        COMMAI_API_KEY: ${{ inputs.api-key }}
+        COMMAI_ENV_VAR: ${{ steps.provider.outputs.env_var }}
+      run: |
+        # Set the provider-specific env var for the install step
+        export "$COMMAI_ENV_VAR=$COMMAI_API_KEY"
+
+        # Install commai hooks with non-interactive mode for CI
+        INSTALL_ARGS=(install --model "${{ inputs.model }}" --no-interactive)
+        if [[ "${{ inputs.auto-commit }}" == "true" ]]; then
+          INSTALL_ARGS+=(--auto-commit)
+        fi
+        commai "${INSTALL_ARGS[@]}"
+
+    - name: Generate commit message
+      id: generate
+      shell: bash
+      env:
+        COMMAI_API_KEY: ${{ inputs.api-key }}
+        COMMAI_ENV_VAR: ${{ steps.provider.outputs.env_var }}
+      run: |
+        # Set the provider-specific API key env var
+        export "$COMMAI_ENV_VAR=$COMMAI_API_KEY"
+
+        # Create a temp file for the commit message
+        COMMIT_MSG_FILE="$(mktemp)"
+        # Write an empty template so commai sees no existing user content
+        echo "" > "$COMMIT_MSG_FILE"
+
+        # Run generate — commai exits 0 even on AI/network failures
+        commai generate "$COMMIT_MSG_FILE"
+
+        # Read the generated message (strip trailing newline)
+        MESSAGE="$(cat "$COMMIT_MSG_FILE")"
+        # Remove comment lines (lines starting with #)
+        MESSAGE="$(echo "$MESSAGE" | grep -v '^#' | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba;}')"
+
+        # Set output — use heredoc delimiter for multiline messages
+        {
+          echo "message<<COMMAI_EOF"
+          echo "$MESSAGE"
+          echo "COMMAI_EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # Clean up
+        rm -f "$COMMIT_MSG_FILE"
+
+        if [ -z "$MESSAGE" ]; then
+          echo "::warning::commai did not generate a commit message. This may be due to no staged changes or an API error."
+        else
+          echo "::notice::Commit message generated successfully"
+        fi
