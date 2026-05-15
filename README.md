@@ -11,7 +11,7 @@ Generate git commit messages using AI — the only dependency-light, hook-chain-
 - **2 production dependencies.** No bloat. Competitors ship 12–20+ transitive deps; commai ships chalk and commander.
 - **Hook chain compatible.** Works with husky, commitlint, `.git/hooks/`. Most tools overwrite your hooks; commai chains to them.
 - **AI errors don't block.** Network timeout? API down? Exit 0. Your commit proceeds. No friction.
-- **Multi-provider.** Claude and OpenAI. Model name tells us which API to hit—no config wiring needed.
+- **Multi-provider.** Claude and OpenAI. Model name tells us which API to hit—setup is automatic, no provider config wiring.
 - **Native fetch, no SDKs.** Explicit HTTP calls over bloated SDK clients. Fast, predictable, lean.
 
 ---
@@ -41,7 +41,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
 ```
 
-Or store in `~/.commai/.env` or `.env` (project root) to persist across sessions. See [Environment Variables](#environment-variables) for details.
+Or store in `~/.commai/.env` or `.env` (project root) to persist across sessions. Shell environment always takes precedence. See [Environment Variables](#environment-variables) for details.
 
 ### 2. Install hook (per repo)
 
@@ -74,11 +74,11 @@ feat: add user authentication
 >
 ```
 
-- **a** — Accept and commit
+- **a** — Accept and write the message to your commit
 - **r** — Regenerate with optional custom instructions
-- **c** — Cancel; edit and retry
+- **c** — Cancel; edit the message manually and retry
 
-**Graceful:** No staged changes? User message already typed? Merge/amend context? commai skips generation. Your workflow, uninterrupted.
+**Graceful:** No staged changes? User message already typed? Merge/amend context? commai exits early without generating. Your workflow, uninterrupted.
 
 ---
 
@@ -137,11 +137,11 @@ Only the key for your chosen provider is required. commai infers the provider fr
 
 ### .env File Loading
 
-commai loads environment variables in this order (shell always wins):
+commai loads environment variables in this order (highest to lowest precedence):
 
-1. `~/.commai/.env` — global, applied first (lower precedence)
-2. `.env` in your project root — applied second, overrides global
-3. Shell environment — always wins over both
+1. Shell environment — always wins, takes absolute precedence
+2. `.env` in your project root — project-specific overrides
+3. `~/.commai/.env` — global fallback (lowest precedence)
 
 Example `~/.commai/.env` (global, covers all your projects):
 
@@ -150,7 +150,7 @@ ANTHROPIC_API_KEY=sk-ant-abc123...
 OPENAI_API_KEY=sk-xyz789...
 ```
 
-Example project `.env` (project-specific override):
+Example `.env` in project root (overrides global, never commit to git):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-project-specific...
@@ -172,8 +172,8 @@ commai install --model haiku@latest --interactive --auto-commit
 | Flag              | Default  | Description                                                                                                                    |
 | ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `--model <model>` | Required | Model to use, in `<family>@<version>` format (e.g., `sonnet@latest`, `haiku@4.0.25`). See [Model Selection](#model-selection). |
-| `--interactive`   | `true`   | Show the accept/regenerate/cancel prompt on each commit.                                                                       |
-| `--auto-commit`   | `false`  | Run `git commit -m '<message>'` automatically after accepting.                                                                 |
+| `--interactive`   | `true`   | Enable the accept/regenerate/cancel prompt on each commit. Pass `--interactive=false` to disable.                             |
+| `--auto-commit`   | `false`  | Run `git commit -m '<message>'` automatically after accepting. Pass `--auto-commit` to enable.                                |
 
 **Effects:**
 
@@ -183,7 +183,7 @@ commai install --model haiku@latest --interactive --auto-commit
 - Sets `git config core.hooksPath .commai`
 - Creates forwarder scripts for all 12 git hooks (chains to `.husky/` and `.git/hooks/`)
 
-To change options (e.g., switch model), re-run `commai install --model <new-model>`. Do not edit `.commai/.config` manually.
+To change options (e.g., switch model), re-run `commai install --model <new-model>`. **Do not edit `.commai/.config` manually** — the install command will overwrite your changes.
 
 **Idempotent:** Running install again safely overwrites the hook if it was created by commai. Exits 1 if `.commai/` exists but wasn't created by commai (foreign directory — refuses to overwrite).
 
@@ -221,8 +221,8 @@ commai generate .git/COMMIT_EDITMSG
 
 **Exit codes:**
 
-- `0` — Success, or non-fatal failure (AI error, network timeout, user cancelled). Commit is never blocked.
-- `1` — Configuration error (missing API key, `commai install` not run, not a git repo, unknown model family).
+- `0` — Success, or any expected failure (AI error, network timeout, user cancelled, early exits). Commit is never blocked.
+- `1` — Configuration error only (missing API key, `commai install` not run, not a git repo, unknown model family).
 
 ## Model Selection
 
@@ -262,9 +262,10 @@ The provider is resolved from the model family — no extra config needed:
 
 1. Extract the family from `<family>@<version>` (or scan the raw ID for a known family substring)
 2. Look up the provider from the family map above
-3. Query the provider's `models.list()` API and filter by family (case-insensitive)
-4. If `version` is `latest`, pick the most recently created match; otherwise filter by version string (dots → dashes)
-5. Fall back to the input as-is if no match is found or the API call fails
+3. If the model is an alias (contains `@`), query the provider's `models.list()` API and filter by family (case-insensitive)
+4. If `version` is `latest`, pick the most recently created match; otherwise match by exact version
+5. If the model is a raw ID (no `@`), use it as-is without an API call
+6. Fall back to the input as-is if no match is found or the API call fails
 
 ### Available Models
 
@@ -319,8 +320,8 @@ This allows commai to coexist with husky, commitlint, and other pre-commit tooli
 
 ### What's Safe to Delete
 
-- **Don't delete `.commai/`** — Run `commai uninstall` instead
-- **Don't edit `.commai/`** — Hook scripts and `.commai/.config` are auto-generated. To change options, re-run `commai install --model <model>`
+- **Don't manually delete `.commai/`** — Run `commai uninstall` instead (it restores your git hook chain correctly)
+- **Don't manually edit `.commai/`** — Hook scripts and `.commai/.config` are auto-generated. To change options, re-run `commai install --model <model>`
 - **Safe to delete:** `.git/hooks/prepare-commit-msg` (if not created by you), or third-party hooks if you're sure they're no longer needed
 
 ## Troubleshooting
@@ -345,8 +346,9 @@ The model `<family>@<version>` didn't match any models in the provider's API.
 
 1. Verify the family name — Claude: `sonnet`, `haiku`, `opus`; OpenAI: `gpt`, `o` (case-insensitive)
 2. Check for typos in the version: `latest` is the safest default
-3. Check the API key for the correct provider is set and valid
-4. Use the raw model ID as a fallback (e.g., `claude-3-5-sonnet-20241022` or `gpt-4-turbo`)
+3. Check that the API key for the correct provider is set and valid
+4. Check that your API key has access to the model (some models are behind waitlists or org restrictions)
+5. Use the raw model ID as a fallback (e.g., `claude-3-5-sonnet-20241022` or `gpt-4-turbo`), which skips the API lookup
 
 ### Hook isn't running / commit skips message generation
 
@@ -359,7 +361,7 @@ git config core.hooksPath
 
 If empty or different, run `commai install` again.
 
-**Also note:** commai intentionally skips generation in these cases:
+**Also note:** commai intentionally exits early (without generating a message) in these cases:
 
 - No staged changes (`git add` nothing)
 - User already typed a message (commai respects manual input)
@@ -390,7 +392,7 @@ chmod +x .commai/prepare-commit-msg
 
 ### "AI call failed" / Network timeout
 
-Network issues or API errors. commai logs the error and exits 0 (non-fatal) — your commit will still proceed.
+Network issues or API errors. commai logs the error and exits 0 (non-fatal, never blocks your commit) — your commit will still proceed without a generated message.
 
 **Debug (Claude):**
 
