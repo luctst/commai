@@ -1,6 +1,6 @@
 {
   "name": "@luctst/commai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate git commit messages using AI",
   "type": "module",
   "bin": {
