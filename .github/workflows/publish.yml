@@ -22,7 +22,7 @@ jobs:
           cache: pnpm
       - run: pnpm install
       - run: pnpm run build
-      - run: npm publish --provenance --access public
+      - run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Notify Slack on publish
